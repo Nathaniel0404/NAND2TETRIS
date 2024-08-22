@@ -425,7 +425,18 @@ string writeIfGoto(string label) {
     return out;
 }
 
-
+string writeFunction(string fileName, string function, int nVars) {
+    string fName = outputName(fileName) + "." + function;
+    string out = writeLabel(fName) + "\n";
+    for (int i = 0; i < nVars; i++) {
+        out += "@SP\n"
+               "A=M\n"
+               "M=0\n"
+               "@SP\n"
+               "M=M+1\n\n";
+    }
+    return out;
+}
 
 int main() {
     unordered_map<string,int> aCommandCount = countInit();
@@ -443,7 +454,7 @@ int main() {
                 continue;
             }
             line = removeWhite(line);
-            
+            //cout << line << endl;
             string asmLine;
             string cType = commandType(line);
             if (cType == "C_ARITHMETIC") {
@@ -455,7 +466,9 @@ int main() {
             } else if (cType == "C_GOTO") {
                 asmLine = writeGoto(arg1(line));
             } else if (cType == "C_IF") {
-                asmLine = writeIfGoto(arg1(line));
+                asmLine = writeIfGoto(arg1(line)); 
+            } else if (cType == "C_FUNCTION") {
+                asmLine = writeFunction(file_name,arg1(line),arg2(line));
             }
             out << asmLine << endl;
         }
