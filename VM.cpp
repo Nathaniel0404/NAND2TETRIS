@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <format>
+#include <typeinfo>
 
 using namespace std;
 using umap = unordered_map<string,string>;
@@ -392,7 +393,7 @@ string writeLabel(string label) {
 }
 
 string removeWhite(string line) {
-    if (line[0] != ' ') {
+    if (line[0] != ' ' && line[0] != 9) {
         return line;
     }
     string out;
@@ -400,7 +401,7 @@ string removeWhite(string line) {
     for (char c : line) {
         if (hasStart) {
             out += c;
-        } else if (c != ' ') {
+        } else if (c != ' ' && c != 9) {
             hasStart = true;
             out += c;
         }
@@ -433,7 +434,7 @@ int main() {
     fstream instr, out;
     instr.open(file_name, ios::in);
     out.open(outputName(file_name)+".asm", ios::out);
- 
+
     if (instr.is_open()) {
         string line;
         while (getline(instr,line)) {
@@ -441,7 +442,8 @@ int main() {
             if(line[0] == 0 || (line[0] == '/' && line[1] == '/') || line[0] == '(' ) {
                 continue;
             }
-
+            line = removeWhite(line);
+            
             string asmLine;
             string cType = commandType(line);
             if (cType == "C_ARITHMETIC") {
@@ -451,9 +453,9 @@ int main() {
             } else if (cType == "C_LABEL") {
                 asmLine = writeLabel(arg1(line));
             } else if (cType == "C_GOTO") {
-                asmLine = writeGoto(line);
+                asmLine = writeGoto(arg1(line));
             } else if (cType == "C_IF") {
-                asmLine = writeIfGoto(line);
+                asmLine = writeIfGoto(arg1(line));
             }
             out << asmLine << endl;
         }
