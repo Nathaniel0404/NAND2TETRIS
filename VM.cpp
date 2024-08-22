@@ -425,9 +425,8 @@ string writeIfGoto(string label) {
     return out;
 }
 
-string writeFunction(string fileName, string function, int nVars) {
-    string fName = outputName(fileName) + "." + function;
-    string out = writeLabel(fName) + "\n";
+string writeFunction(string function, int nVars) {
+    string out = writeLabel(function) + "\n";
     for (int i = 0; i < nVars; i++) {
         out += "@SP\n"
                "A=M\n"
@@ -448,6 +447,8 @@ int main() {
 
     if (instr.is_open()) {
         string line;
+        bool inFunction = false;
+        string funcName;
         while (getline(instr,line)) {
 
             if(line[0] == 0 || (line[0] == '/' && line[1] == '/') || line[0] == '(' ) {
@@ -457,18 +458,27 @@ int main() {
             //cout << line << endl;
             string asmLine;
             string cType = commandType(line);
+            string label;
+            if (inFunction) {
+                label = funcName + "$" + arg1(line);
+            } else {
+                label = arg1(line);
+            }
+
             if (cType == "C_ARITHMETIC") {
                 asmLine = writeArithmetic(arg1(line),&aCommandCount);
             } else if (cType == "C_PUSH" || cType == "C_POP") {
                 asmLine = writePushPop(file_name,cType,arg1(line),arg2(line));
             } else if (cType == "C_LABEL") {
-                asmLine = writeLabel(arg1(line));
+                asmLine = writeLabel(label);
             } else if (cType == "C_GOTO") {
-                asmLine = writeGoto(arg1(line));
+                asmLine = writeGoto(label);
             } else if (cType == "C_IF") {
-                asmLine = writeIfGoto(arg1(line)); 
+                asmLine = writeIfGoto(label); 
             } else if (cType == "C_FUNCTION") {
-                asmLine = writeFunction(file_name,arg1(line),arg2(line));
+                funcName = outputName(file_name) + "." + arg1(line);
+                inFunction = true;
+                asmLine = writeFunction(funcName,arg2(line));
             }
             out << asmLine << endl;
         }
