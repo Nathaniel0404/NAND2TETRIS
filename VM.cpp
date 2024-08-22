@@ -389,6 +389,7 @@ string outputName (string file) {
 }
 
 string writeLabel(string label) {
+    
     return "(" + label + ")\n";
 }
 
@@ -410,13 +411,15 @@ string removeWhite(string line) {
 }
 
 string writeGoto(string label) {
-    string out = "@" + label + "\n" +
+    string out = "//Goto " + label + "\n"
+                 "@" + label + "\n" 
                  "0;JMP\n";
     return out;
 }
 
 string writeIfGoto(string label) {
-    string out = "@SP\n" 
+    string out = "// If-goto " + label + "\n"
+                "@SP\n" 
                  "M=M-1\n"
                  "A=M\n"
                  "D=M\n"
@@ -426,7 +429,8 @@ string writeIfGoto(string label) {
 }
 
 string writeFunction(string function, int nVars) {
-    string out = writeLabel(function) + "\n";
+    string out = "// Function " + function + "\n";
+     out += writeLabel(function) + "\n";
     for (int i = 0; i < nVars; i++) {
         out += "@SP\n"
                "A=M\n"
@@ -435,6 +439,46 @@ string writeFunction(string function, int nVars) {
                "M=M+1\n\n";
     }
     return out;
+}
+
+string writeCall(string function, int nArgs, int nCalls) {
+    string out;
+    string push = "@SP\n"
+                  "A=M\n"
+                  "M=D\n"
+                  "@SP\n"
+                  "M=M+1\n\n";
+    string retAdd = function + "$ret." + to_string(nCalls);
+    out = "// Call " + function + "\n";
+    // push return address
+    out += "@" + retAdd + "\nD=A\n" + push;
+    // push LCL
+    out += "@LCL\nD=M" + push;
+    // push ARG
+    out += "@ARG\nD=M" + push;
+    // push THIS
+    out += "@THIS\nD=M" + push;
+    // push THAT
+    out += "@THAT\nD=M" + push;
+    // ARG and LCL repos
+    out += "@SP\n"
+           "D=M\n"
+           "@LCL\n"
+           "M=D\n"
+           "@5\n"
+           "D=D-A\n"
+           "@" + to_string(nArgs) + "\n"
+           "D=D-A\n"
+           "@ARG\n"
+           "M=D\n";
+    out += writeGoto(function);
+    out += writeLabel(retAdd);
+    cout << "test 2" << endl;
+    return out;
+}
+
+string funcName(string fileName, string function) {
+    return outputName(fileName) + "." + function;
 }
 
 int main() {
@@ -448,19 +492,21 @@ int main() {
     if (instr.is_open()) {
         string line;
         bool inFunction = false;
-        string funcName;
+        string fName;
+        int nCalls = 0;
         while (getline(instr,line)) {
 
             if(line[0] == 0 || (line[0] == '/' && line[1] == '/') || line[0] == '(' ) {
                 continue;
             }
             line = removeWhite(line);
-            //cout << line << endl;
+            /*cout << line << endl;
+            cout << commandType(line) << endl;*/
             string asmLine;
             string cType = commandType(line);
             string label;
             if (inFunction) {
-                label = funcName + "$" + arg1(line);
+                label = fName + "$" + arg1(line);
             } else {
                 label = arg1(line);
             }
@@ -476,9 +522,14 @@ int main() {
             } else if (cType == "C_IF") {
                 asmLine = writeIfGoto(label); 
             } else if (cType == "C_FUNCTION") {
-                funcName = outputName(file_name) + "." + arg1(line);
+                fName = funcName(file_name,arg1(line));
                 inFunction = true;
-                asmLine = writeFunction(funcName,arg2(line));
+                asmLine = writeFunction(fName,arg2(line));
+            } else if (cType == "C_CALL") {
+                //cout << "test 2------------------------" << endl;
+                asmLine = writeCall(funcName(file_name,arg1(line)), arg2(line), nCalls);
+                
+                nCalls++;
             }
             out << asmLine << endl;
         }
