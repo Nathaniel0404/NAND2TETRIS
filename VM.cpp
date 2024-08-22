@@ -408,6 +408,24 @@ string removeWhite(string line) {
     return out;
 }
 
+string writeGoto(string label) {
+    string out = "@" + label + "\n" +
+                 "0;JMP\n";
+    return out;
+}
+
+string writeIfGoto(string label) {
+    string out = "@SP\n" 
+                 "M=M-1\n"
+                 "A=M\n"
+                 "D=M\n"
+                 "@" + label + "\n"
+                 "D;JNE\n";
+    return out;
+}
+
+
+
 int main() {
     unordered_map<string,int> aCommandCount = countInit();
     string file_name;
@@ -432,6 +450,10 @@ int main() {
                 asmLine = writePushPop(file_name,cType,arg1(line),arg2(line));
             } else if (cType == "C_LABEL") {
                 asmLine = writeLabel(arg1(line));
+            } else if (cType == "C_GOTO") {
+                asmLine = writeGoto(line);
+            } else if (cType == "C_IF") {
+                asmLine = writeIfGoto(line);
             }
             out << asmLine << endl;
         }
