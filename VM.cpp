@@ -11,6 +11,13 @@ umap commandList() {
     umap out;
     out["push"] = "C_PUSH";
     out["pop"] = "C_POP";
+    out["label"] = "C_LABEL";
+    out["goto"] = "C_GOTO";
+    out["if-goto"] = "C_IF";
+    out["label"] = "C_LABEL";
+    out["function"] = "C_FUNCTION";
+    out["return"] = "C_RETURN";
+    out["call"] = "C_CALL";
 
     out["add"] = "C_ARITHMETIC";
     out["neg"] = "C_ARITHMETIC";
@@ -74,7 +81,7 @@ string arg1(string line) {
             }
             prev = c;
         }
-        if ((arg != "constant" && arg != "static") && arg != "pointer") {
+        if (arg == "local" || arg == "argument" || arg == "this" || arg == "that" || arg == "temp") {
             arg = seg[arg];
         }
         
@@ -377,7 +384,28 @@ string outputName (string file) {
         }
         name += c;
     }
-    return name + ".asm";
+    return name;
+}
+
+string writeLabel(string label) {
+    return "(" + label + ")\n";
+}
+
+string removeWhite(string line) {
+    if (line[0] != ' ') {
+        return line;
+    }
+    string out;
+    bool hasStart = false;
+    for (char c : line) {
+        if (hasStart) {
+            out += c;
+        } else if (c != ' ') {
+            hasStart = true;
+            out += c;
+        }
+    }
+    return out;
 }
 
 int main() {
@@ -386,7 +414,8 @@ int main() {
     cin >> file_name;
     fstream instr, out;
     instr.open(file_name, ios::in);
-    out.open(outputName(file_name), ios::out);
+    out.open(outputName(file_name)+".asm", ios::out);
+ 
     if (instr.is_open()) {
         string line;
         while (getline(instr,line)) {
@@ -394,12 +423,15 @@ int main() {
             if(line[0] == 0 || (line[0] == '/' && line[1] == '/') || line[0] == '(' ) {
                 continue;
             }
+
             string asmLine;
             string cType = commandType(line);
             if (cType == "C_ARITHMETIC") {
                 asmLine = writeArithmetic(arg1(line),&aCommandCount);
             } else if (cType == "C_PUSH" || cType == "C_POP") {
                 asmLine = writePushPop(file_name,cType,arg1(line),arg2(line));
+            } else if (cType == "C_LABEL") {
+                asmLine = writeLabel(arg1(line));
             }
             out << asmLine << endl;
         }
