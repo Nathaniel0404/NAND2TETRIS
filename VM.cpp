@@ -138,9 +138,15 @@ string push(string fileName, string segment, int index) {
     return out;
 }
 
+string top() {
+    // Targets top of stack    
+    return "@SP\nM=M-1\nA=M\n"; 
+}
+
 string pop(string fileName, string segment, int index) {
     string out = "// pop " + segment + " " + to_string(index) + "\n";
-    out += "@SP\nM=M-1\nA=M\nD=M\n";
+    out += top();
+    out += "D=M\n";
     out += segmentInit(fileName,segment,index);
     out += "M=D\n";
     return out;
@@ -481,6 +487,80 @@ string funcName(string fileName, string function) {
     return outputName(fileName) + "." + function;
 }
 
+string writeReturn() {
+    string out;
+    out += "// Return\n"
+           "@LCL\n"
+           "D=M\n"
+           "@R5\n"
+           "M=D\n"
+       // Storing return add in TEMP 2   
+           "@5\n"
+           "D=D-A\n"
+           "@R6\n"
+           "M=D\n"
+        // Popping return value
+           "@SP\n"
+           "M=M-1\n"
+           "A=M\n"
+           "D=M\n"
+           "@ARG\n"
+           "A=M\n"
+           "M=D\n"
+        // Setting SP = ARG+1
+           "@ARG\n"
+           "D=M\n"
+           "@SP\n"
+           "M=D+1\n"
+        // Setting THAT
+            "@R5\n"
+            "D=M\n"
+            "D=D-1\n"
+            "A=D\n"
+            "D=M\n"
+            "@THAT\n"
+            "M=D\n"
+        // Setting THIS
+            "@R5\n"
+            "D=M\n"
+            "D=D-1\n"
+            "D=D-1\n"
+            "A=D\n"
+            "D=M\n"
+            "@THIS\n"
+            "M=D\n"
+        // Setting ARG
+            "@R5\n"
+            "D=M\n"
+            "D=D-1\n"
+            "D=D-1\n"
+            "D=D-1\n"
+            "A=D\n"
+            "D=M\n"
+            "@ARG\n"
+            "M=D\n"
+        // Setting LCL
+            "@R5\n"
+            "D=M\n"
+            "D=D-1\n"
+            "D=D-1\n"
+            "D=D-1\n"
+            "D=D-1\n"
+            "A=D\n"
+            "D=M\n"
+            "@LCL\n"
+            "M=D\n"
+        // goto return
+            "@R6\n"
+            "A=M\n"
+            "A=M\n"
+            "0;JMP\n";
+
+
+    return out;
+           
+}
+
 int main() {
     unordered_map<string,int> aCommandCount = countInit();
     string file_name;
@@ -530,6 +610,10 @@ int main() {
                 asmLine = writeCall(funcName(file_name,arg1(line)), arg2(line), nCalls);
                 
                 nCalls++;
+            } else if (cType == "C_RETURN") {
+                asmLine = writeReturn();
+                nCalls = 0;
+                inFunction = false;
             }
             out << asmLine << endl;
         }
