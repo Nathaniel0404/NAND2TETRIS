@@ -193,6 +193,12 @@ string pop(string arg1, string arg2, string fileName) {
     return out;
 }
 
+string pushPointer(string pointer) {
+    string out = "@" + pointer + "\n" + "D=M\n" + accessSP(false) + "M=D\n" + increaseSP();
+
+    return out;
+}
+
 string add() {
     string out;
     out += accessSP(true) + "D=M\n" + accessSP(true) + "M=D+M\n" + increaseSP();
@@ -300,8 +306,8 @@ string writeLabel(string file, string function, string label) {
     return bracket(labelNameGen(file, function, label));
 }
 
-string writeGOTO(string file, string function, string label) {
-    return "@" + labelNameGen(file, function, label) + "\n0;JMP\n";
+string writeGOTO(string label) {
+    return "@" + label + "\n0;JMP\n";
 }
 
 string writeIF(string file, string function, string label) {
@@ -310,12 +316,42 @@ string writeIF(string file, string function, string label) {
 
 string writeFunction(string file, string function, string nVars) {
     int n = stoi(nVars);
-    string out = "@" + bracket(functionNameGen(file, function)) + "\n";
+    string out = bracket(functionNameGen(file, function)) + "\n";
     for (int i = 0; i < n; i++) {
         out += push("constant", "0", file);
     }
     return out;
 
+}
+
+string retAddGen(string file, string caller, int nCalls) {
+    string label = "ret." + to_string(nCalls);
+    return labelNameGen(file, caller, label);
+}
+
+string setPointerValue(string setter, string getter) {
+    string out = "@" + getter + "\n" + "D=M\n";
+    out += "@" + setter + "\n" + "M=D\n";
+    return out;
+}
+
+string writeCall(string file, string caller, string callee, string nArgs, int nCalls) {
+    int n = stoi(nArgs);
+    string returnAdd = retAddGen(file, caller, nCalls);
+    string out;
+    out += push("constant", returnAdd, file);
+    out += pushPointer("LCL");
+    out += pushPointer("ARG");
+    out += pushPointer("THIS");
+    out += pushPointer("THAT");
+    out += "@SP\n";
+    for (int i = 0; i < 5 + n; i++) {
+        out += "A=A-1\n";
+    }
+    out += setPointerValue("LCL", "SP");
+    out += writeGOTO(functionNameGen(file,callee));
+    out += bracket(returnAdd);
+    return out;
 }
 
 //code Writer
@@ -342,7 +378,6 @@ int main() {
 
     path directory;
     fstream instruction, out;
-    
 
     cout << "Enter a path: " << endl;
     cin >> directory;
