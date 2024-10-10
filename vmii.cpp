@@ -362,7 +362,7 @@ string writeCall(string file, string caller, string callee, string nArgs, int nC
 }
 
 string resetSeg(string segment, int index) {
-    string out = "@R5\nA=M\n";
+    string out = "@R5\n";
     for (int i = 0; i < index; i++) {
         out += "A=A-1\n";
     }
