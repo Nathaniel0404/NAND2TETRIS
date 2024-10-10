@@ -339,18 +339,65 @@ string writeCall(string file, string caller, string callee, string nArgs, int nC
     int n = stoi(nArgs);
     string returnAdd = retAddGen(file, caller, nCalls);
     string out;
+    out += "/// Push return address\n";
     out += push("constant", returnAdd, file);
+    out += "/// Push mem segments\n";
     out += pushPointer("LCL");
     out += pushPointer("ARG");
     out += pushPointer("THIS");
     out += pushPointer("THAT");
+    out += "/// Reposition ARG=SP-5-nARG\n";
     out += "@SP\n";
     for (int i = 0; i < 5 + n; i++) {
         out += "A=A-1\n";
     }
+    out += "D=A\n";
+    out += "@ARG\nM=D\n";
+    out += "/// Reposition LCL=SP\n";
     out += setPointerValue("LCL", "SP");
+    out += "/// Goto function\n";
     out += writeGOTO(functionNameGen(file,callee));
     out += bracket(returnAdd);
+    return out;
+}
+
+string resetSeg(string segment, int index) {
+    string out = "@R5\nA=M\n";
+    for (int i = 0; i < index; i++) {
+        out += "A=A-1\n";
+    }
+    out += "@" + segment + "\nM=D\n";
+}
+
+string writeReturn(string file) {
+    // Save frame in a temp variable
+    string out = "/// Save frame in a temp variable\n";
+    out += "@LCL\nD=M\n";
+    out += accessSeg("R5", "0", file) + "M=D";
+    // Save return address in another temp variable
+    out += "/// Save return address in another temp variable\n";
+    out += "@LCL\nA=M\n";
+    for (int i = 0; i < 5; i++) {
+        out += "A=A-1\n";
+    }
+    out  += "D=M\n";
+    out += accessSeg("R5","1",file) + "M=D\n";
+    // Pop return value to top of stack
+    out += "/// Pop return value to top of stack\n";
+    out += accessSP(true) + "D=M\n";
+    out += "@ARG\nA=M\nM=D\n";
+    // Reset SP to after return value
+    out += "/// Reset SP to after return value\n";
+    out  += "@ARG\nD=M\n@SP\nM=D+1\n";
+    // Reset memory segments
+    out += "/// Reset memory segments\n";
+    out += resetSeg("THAT",1);
+    out += resetSeg("THIS",2);
+    out += resetSeg("ARG",3);
+    out += resetSeg("LCL",4);
+    // Go to return address
+    out += "/// Go to return address\n";
+    out += accessSeg("R5","1",file) + "A=M\n0;JMP\n";
     return out;
 }
 
@@ -378,7 +425,11 @@ int main() {
 
     path directory;
     fstream instruction, out;
-
+    string fileT = "test";
+    string funcT = "foo";
+    cout << "write function\n" << writeFunction(fileT,funcT,"3") << endl;
+    cout << "write call\n" << writeCall(fileT,"bar", funcT, "3", 2) << endl;
+    cout << "write return\n" << writeReturn(fileT) << endl;
     cout << "Enter a path: " << endl;
     cin >> directory;
     string dirString = directory.string();
