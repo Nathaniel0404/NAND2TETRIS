@@ -367,13 +367,14 @@ string resetSeg(string segment, int index) {
         out += "A=A-1\n";
     }
     out += "@" + segment + "\nM=D\n";
+    return out;
 }
 
 string writeReturn(string file) {
     // Save frame in a temp variable
     string out = "/// Save frame in a temp variable\n";
     out += "@LCL\nD=M\n";
-    out += accessSeg("R5", "0", file) + "M=D";
+    out += accessSeg("R5", "0", file) + "M=D\n";
     // Save return address in another temp variable
     out += "/// Save return address in another temp variable\n";
     out += "@LCL\nA=M\n";
