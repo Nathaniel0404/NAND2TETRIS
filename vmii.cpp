@@ -5,6 +5,7 @@
 #include <format>
 #include <typeinfo>
 #include <filesystem>
+#include <tuple>
 using namespace std::filesystem;
 
 using namespace std;
@@ -403,7 +404,7 @@ string writeReturn(string file) {
 }
 
 //code Writer
-string codeWriter(string line, string fileName, unordered_map<string,int> &counter) {
+string codeWriter(string line, string fileName, unordered_map<string,int> &counter, vector<tuple<string,int>> &fStack) {
     string asmLine = "//" + line + "\n";
     vector<string> keywords = parser(line,fileName);
     string cType = keywords[0];
@@ -416,6 +417,21 @@ string codeWriter(string line, string fileName, unordered_map<string,int> &count
         asmLine += pop(arg1,arg2,fileName);
     } else if (cType == "C_ARITHMETIC") {
         asmLine += writeArithmetic(arg1,counter);
+    } else if (cType == "C_LABEL") {
+        asmLine += writeLabel(fileName,get<0>(fStack[0]), arg1);
+    } else if (cType == "C_GOTO") {
+        asmLine += writeGOTO(labelNameGen(fileName,get<0>(fStack[0]),arg1));
+    } else if (cType == "C_IF") {
+        asmLine += writeIF(fileName, get<0>(fStack[0]), arg1);
+    } else if (cType == "C_FUNCTION") {
+        asmLine += writeFunction(fileName, arg1, arg2);
+    } else if (cType == "C_CALL") {
+        asmLine += writeCall(fileName, get<0>(fStack[0]), arg1, arg2, get<1>(fStack[0]));
+        get<1>(fStack[0])++;
+        fStack.insert(fStack.begin(),make_tuple(arg1,0));
+    } else if (cType == "C_RETURN") {
+        asmLine += writeReturn(fileName);
+        fStack.erase(fStack.begin());
     }
 
 
@@ -426,18 +442,20 @@ int main() {
 
     path directory;
     fstream instruction, out;
-    string fileT = "test";
-    string funcT = "foo";
-    cout << "write function\n" << writeFunction(fileT,funcT,"3") << endl;
-    cout << "write call\n" << writeCall(fileT,"bar", funcT, "3", 2) << endl;
-    cout << "write return\n" << writeReturn(fileT) << endl;
+    string c = "g";
+    while (c != "done") {
+    
+        getline(cin,c);
+        cout << parser(c,"file")[0] << " " << parser(c,"file")[1] << " " << parser(c,"file")[2] << endl;
+    }
+   
     cout << "Enter a path: " << endl;
     cin >> directory;
     string dirString = directory.string();
     out.open(dirToFile(dirString)+".asm",ios::out);
 
     unordered_map<string,int> cCounter = countInit();
-
+    vector<tuple<string,int>> funcStack = {make_tuple("main",0)};
     for (const auto& file : directory_iterator(directory)) {
         path filePath = file.path();
         string sfile = filePath.string();
@@ -450,7 +468,7 @@ int main() {
                 if (line.length() == 0) {
                     continue;
                 }
-                out << codeWriter(line, dirToFile(sfile), cCounter) << endl;
+                out << codeWriter(line, dirToFile(sfile), cCounter, funcStack) << endl;
             }
             instruction.close();
             }
