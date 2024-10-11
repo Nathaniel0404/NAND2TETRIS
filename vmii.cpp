@@ -296,7 +296,7 @@ string functionNameGen(string file, string function) {
 }
 
 string labelNameGen(string file, string function, string label) {
-    return file + "." + function + "$" + label;
+    return function + "$" + label;
 }
 
 string bracket(string label) {
@@ -304,6 +304,7 @@ string bracket(string label) {
 }
 
 string writeLabel(string file, string function, string label) {
+    cout << "'" << function << "'" << endl;
     return bracket(labelNameGen(file, function, label));
 }
 
@@ -312,12 +313,12 @@ string writeGOTO(string label) {
 }
 
 string writeIF(string file, string function, string label) {
-    return accessSP(true) + "D=M\n" + "@"+ labelNameGen(file, function, label) + "\n0;JNE\n";
+    return accessSP(true) + "D=M\n" + "@"+ labelNameGen(file, function, label) + "\nD;JNE\n";
 }
 
 string writeFunction(string file, string function, string nVars) {
     int n = stoi(nVars);
-    string out = bracket(functionNameGen(file, function)) + "\n";
+    string out = bracket(function) + "\n";
     for (int i = 0; i < n; i++) {
         out += push("constant", "0", file);
     }
@@ -327,7 +328,7 @@ string writeFunction(string file, string function, string nVars) {
 
 string retAddGen(string file, string caller, int nCalls) {
     string label = "ret." + to_string(nCalls);
-    return labelNameGen(file, caller, label);
+    return caller + "$" + label;
 }
 
 string setPointerValue(string setter, string getter) {
@@ -348,7 +349,7 @@ string writeCall(string file, string caller, string callee, string nArgs, int nC
     out += pushPointer("THIS");
     out += pushPointer("THAT");
     out += "/// Reposition ARG=SP-5-nARG\n";
-    out += "@SP\n";
+    out += "@SP\nA=M\n";
     for (int i = 0; i < 5 + n; i++) {
         out += "A=A-1\n";
     }
@@ -357,16 +358,17 @@ string writeCall(string file, string caller, string callee, string nArgs, int nC
     out += "/// Reposition LCL=SP\n";
     out += setPointerValue("LCL", "SP");
     out += "/// Goto function\n";
-    out += writeGOTO(functionNameGen(file,callee));
-    out += bracket(returnAdd);
+    out += writeGOTO(callee);
+    out += bracket(returnAdd) + "\n";
     return out;
 }
 
 string resetSeg(string segment, int index) {
-    string out = "@R5\n";
+    string out = "@R5\nA=M\n";
     for (int i = 0; i < index; i++) {
         out += "A=A-1\n";
     }
+    out += "D=M\n";
     out += "@" + segment + "\nM=D\n";
     return out;
 }
@@ -404,7 +406,7 @@ string writeReturn(string file) {
 }
 
 //code Writer
-string codeWriter(string line, string fileName, unordered_map<string,int> &counter, vector<tuple<string,int>> &fStack) {
+string codeWriter(string line, string fileName, unordered_map<string,int> &counter, string &currF, int &nCalls) {
     string asmLine = "//" + line + "\n";
     vector<string> keywords = parser(line,fileName);
     string cType = keywords[0];
@@ -418,44 +420,51 @@ string codeWriter(string line, string fileName, unordered_map<string,int> &count
     } else if (cType == "C_ARITHMETIC") {
         asmLine += writeArithmetic(arg1,counter);
     } else if (cType == "C_LABEL") {
-        asmLine += writeLabel(fileName,get<0>(fStack[0]), arg1);
+        asmLine += writeLabel(fileName,currF, arg1);
     } else if (cType == "C_GOTO") {
-        asmLine += writeGOTO(labelNameGen(fileName,get<0>(fStack[0]),arg1));
+        asmLine += writeGOTO(labelNameGen(fileName,currF,arg1));
     } else if (cType == "C_IF") {
-        asmLine += writeIF(fileName, get<0>(fStack[0]), arg1);
+        asmLine += writeIF(fileName, currF, arg1);
     } else if (cType == "C_FUNCTION") {
         asmLine += writeFunction(fileName, arg1, arg2);
+        currF = arg1;
+        nCalls = 0;
     } else if (cType == "C_CALL") {
-        asmLine += writeCall(fileName, get<0>(fStack[0]), arg1, arg2, get<1>(fStack[0]));
-        get<1>(fStack[0])++;
-        fStack.insert(fStack.begin(),make_tuple(arg1,0));
+        asmLine += writeCall(fileName, currF, arg1, arg2, nCalls);
+        nCalls ++;
     } else if (cType == "C_RETURN") {
         asmLine += writeReturn(fileName);
-        fStack.erase(fStack.begin());
     }
 
 
     return asmLine;
 }
 
+string writeBootstrapper() {
+    string out;
+    out += "//Bootstrap\n";
+    out += "@256\nD=A\n@SP\nM=D\n";
+    out += writeCall("","","Sys.init","0",0);
+    return out;
+}
+
+
 int main() {
 
     path directory;
     fstream instruction, out;
-    string c = "g";
-    while (c != "done") {
-    
-        getline(cin,c);
-        cout << parser(c,"file")[0] << " " << parser(c,"file")[1] << " " << parser(c,"file")[2] << endl;
-    }
    
+
     cout << "Enter a path: " << endl;
     cin >> directory;
     string dirString = directory.string();
     out.open(dirToFile(dirString)+".asm",ios::out);
 
     unordered_map<string,int> cCounter = countInit();
-    vector<tuple<string,int>> funcStack = {make_tuple("main",0)};
+    string currFunc = "";
+    int nCalls = 0;
+
+    out << writeBootstrapper();
     for (const auto& file : directory_iterator(directory)) {
         path filePath = file.path();
         string sfile = filePath.string();
@@ -468,7 +477,7 @@ int main() {
                 if (line.length() == 0) {
                     continue;
                 }
-                out << codeWriter(line, dirToFile(sfile), cCounter, funcStack) << endl;
+                out << codeWriter(line, dirToFile(sfile), cCounter, currFunc, nCalls) << endl;
             }
             instruction.close();
             }
